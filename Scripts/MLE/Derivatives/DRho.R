@@ -1,0 +1,121 @@
+#' Derivative of PMF with respect to $\rho$
+#' Author(s): Dean Hansen
+#'
+#' If you want to calculate f'(N_1,N_2) it should enter the
+#' function as D.Rho(N_2,N_1,L1,L2,L3,rhoo)
+#'
+#' @param x 
+#' @param y 
+#' @param L1 
+#' @param L2 
+#' @param L3 
+#' @param rhoo 
+#'
+#' @return
+#' @export
+#'
+#' @examples
+D.Rho <- function(x,y,L1,L2,L3,rhoo) {
+  
+  # helper functions
+  a <- function(i) {2*rhoo+((1-rhoo)*L1-2*rhoo)/i}
+  b <- function(i) {rhoo^2*(1-(2/i))}
+  c <- function(j) {2*rhoo+((1-rhoo)*L2-2*rhoo)/j}
+  v <- function(i) {2*rhoo^2-((1-rhoo)*(L3-rhoo*(L1+L3))+2*rhoo^2)/i}
+  w <- function(j) {2*rhoo^2-((1-rhoo)*(L3-rhoo*(L2+L3))+2*rhoo^2)/j}
+  
+  # derivatives of helper functions w.r.t $\rho$
+  a_prime <- function(i) {2 + (-L1-2)/i}
+  c_prime <- function(j) {2 + (-L2-2)/j}
+  b_prime <- function(i) {2*rhoo*(1-(2/i))}
+  v_prime <- function(i) {4*rhoo - (L1*(2*rhoo-1)+2*L3*(rhoo-1)+4*rhoo)/i}
+  w_prime <- function(j) {4*rhoo - (L2*(2*rhoo-1)+2*L3*(rhoo-1)+4*rhoo)/j}
+  
+  # f(i,j) == A[j+1,i+1]
+  A <- matrix(NA, nrow=(y+1), ncol=(x+1))
+  
+  # f(0,0)
+  counter<-0
+  i<-counter; im<-i+1
+  j<-counter; jm<-j+1
+  A[im,jm] <- 0
+  if (x==0 && y==0) {return(A)}
+  
+  # f(0,1)
+  j<-counter+1; jm<-j+1
+  if (x != 0) {
+    A[im,jm] <- c_prime(j)*pmf.M(j-1,i,L1,L2,L3,rhoo)[i+1,j] + c(j)*A[im,jm-1]
+  }
+  # f(0,j)
+  # j=2,3,...;
+  for (l in ((j+1):x)) {
+    if (x <= 1) {break}
+    jm <- l+1
+    # maybe they made a mistake here
+    A[im,jm] <- c_prime(l)*pmf.M(l-1,i,L1,L2,L3,rhoo)[i+1,l] + c(l)*A[im,jm-1] - b_prime(l)*pmf.M(l-2,i,L1,L2,L3,rhoo)[i+1,l-1] - b(l)*A[im,jm-2]
+  }
+  
+  # f(1,0)
+  i<-counter+1; im<-i+1
+  j<-counter; jm<-j+1
+  if (y!=0) {
+    A[im,jm] <- a_prime(i)*pmf.M(j,i-1,L1,L2,L3,rhoo)[i,j+1] + a(i)*A[im-1,jm]
+  }
+  # f(i,0)
+  # i=2,3,...;
+  for (k in ((i+1):y)) {
+    if (y<=1) {break}
+    im <- k+1
+    A[im,jm] <- a_prime(k)*pmf.M(j,k-1,L1,L2,L3,rhoo)[k,j+1] + a(k)*A[im-1,jm] - b_prime(k)*pmf.M(j,k-2,L1,L2,L3,rhoo)[k-1,j+1] - b(k)*A[im-2,jm]
+  }
+  
+  # if x=1 or y=1 stop
+  if (min(x,y) <= counter) {return(A)}
+  counter <- 1
+  
+  # f(i,j)
+  # i=1;
+  # j=1,2,...,x;
+  i<-counter; im<-i+1
+  j<-counter; jm<-j+1
+  for (l in (j:x)) {
+    jm <- l+1
+    A[im,jm] <- pmf.M(l-1,i,L1,L2,L3,rhoo)[i+1,l] + rhoo*A[im,jm-1] + a_prime(i)*pmf.M(l,i-1,L1,L2,L3,rhoo)[i,l+1] + a(i)*A[im-1,jm] - v_prime(i)*pmf.M(l-1,i-1,L1,L2,L3,rhoo)[i,l] - v(i)*A[im-1,jm-1]
+  }
+  
+  # f(i,j)
+  # i=1,2,3,...,y;
+  # j=1;
+  j<-counter; jm<-j+1
+  for (k in ((i+1):y)) {
+    if (y < 2) {break}
+    im <- k+1
+    A[im,jm] <- pmf.M(j,k-1,L1,L2,L3,rhoo)[k,j+1] + rhoo*A[im-1,jm] + c_prime(j)*pmf.M(j-1,k,L1,L2,L3,rhoo)[k+1,j] + c(j)*A[im,jm-1] - w_prime(j)*pmf.M(j-1,k-1,L1,L2,L3,rhoo)[k,j] - w(j)*A[im-1,jm-1]
+  }
+  #recursion loop
+  counter <- 2
+  while (counter <= min(x,y)) {
+    # f(i,j)
+    # i=2,3,...;
+    # j=1,2,...;
+    i<-counter; im<-i+1
+    j<-counter; jm<-j+1
+    for (l in (j:x)) {
+      jm <- l+1
+      A[im,jm] <- pmf.M(l-1,i,L1,L2,L3,rhoo)[i+1,l] + rhoo*A[im,jm-1] + a_prime(i)*pmf.M(l,i-1,L1,L2,L3,rhoo)[i,l+1] + a(i)*A[im-1,jm] - b_prime(i)*(pmf.M(l,i-2,L1,L2,L3,rhoo)[i-1,l+1] - rhoo*pmf.M(l-1,i-2,L1,L2,L3,rhoo)[i-1,l]) - b(i)*(A[im-2,jm] - pmf.M(l-1,i-2,L1,L2,L3,rhoo)[i-1,l] - rhoo*A[im-2,jm-1]) - v_prime(i)*pmf.M(l-1,i-1,L1,L2,L3,rhoo)[i,l] - v(i)*A[im-1,jm-1]
+    }
+    if ((y <= x) && (counter==y)) {break;}
+    # f(i,j)
+    # i=1,2,...;
+    # j=2,3,...;
+    j<-counter; jm<-j+1
+    for (k in ((i+1):y)) {
+      im <- k+1
+      # i =k
+      A[im,jm] <- pmf.M(j,k-1,L1,L2,L3,rhoo)[k,j+1] + rhoo*A[im-1,jm] + c_prime(j)*pmf.M(j-1,k,L1,L2,L3,rhoo)[k+1,j] + c(j)*A[im,jm-1] - b_prime(j)*(pmf.M(j-2,k,L1,L2,L3,rhoo)[k+1,j-1] - rhoo*pmf.M(j-2,k-1,L1,L2,L3,rhoo)[k,j-1]) - b(j)*(A[im,jm-2] - pmf.M(j-2,k-1,L1,L2,L3,rhoo)[k,j-1] - rhoo*A[im-1,jm-2]) - w_prime(j)*pmf.M(j-1,k-1,L1,L2,L3,rhoo)[k,j] - w(j)*A[im-1,jm-1]
+    }
+    # move down one row and right one column
+    counter <- counter + 1
+  }
+  return(A) 
+}
